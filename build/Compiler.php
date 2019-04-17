@@ -3,29 +3,33 @@ declare(strict_types=1);
 
 namespace Firehed\Nf;
 
+use League\Flysystem;
 use Phar;
 use Psr\Log\LoggerInterface;
 use ReflectionClass;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Finder\Finder;
 
 class Compiler
 {
+    /** @var Filesystem */
+    private $fs;
+
     /** @var LoggerInterface */
     private $logger;
 
     public function __construct(LoggerInterface $logger)
     {
+        $this->fs = new Filesystem();
         $this->logger = $logger;
     }
 
     public function compile(string $commandClass): void
     {
         $outfile = 'nfc.phar';
-        if (file_exists($outfile)) {
+        if ($this->fs->exists($outfile)) {
             $this->logger->info('Removing existing file');
-            unlink($outfile);
+            $this->fs->delete($outfile);
         }
         $phar = new Phar($outfile, 0, 'nf.phar');
         $phar->startBuffering();
@@ -46,6 +50,12 @@ class Compiler
 
         $phar->stopBuffering();
         unset($phar); // force output
+        if ($this->fs->exists($outfile)) {
+            $this->fs->move($outfile, 'nf');
+            $this->fs->chmod('nf', 0755);
+        } else {
+            throw new \RuntimeException('Phar was not generated');
+        }
     }
 
     private function addFile(Phar $phar, string $path): void
@@ -55,7 +65,7 @@ class Compiler
         }
         $this->logger->debug("Adding file $path");
         $rp = $this->getRelativePath($path);
-        $code = file_get_contents($path);
+        $code = $this->fs->read($path);
         $phar->addFromString($rp, $code);
     }
 
@@ -77,7 +87,7 @@ class Compiler
 
     private function addVendor(Phar $phar): void
     {
-        $lockJson = file_get_contents('composer.lock');
+        $lockJson = $this->fs->read('composer.lock');
         $data = json_decode($lockJson, true, JSON_THROW_ON_ERROR);
         assert(isset($data['packages']));
         foreach ($data['packages'] as $package) {
@@ -93,11 +103,10 @@ class Compiler
 
     private function backupComposer(): string
     {
-        $fs = new Filesystem();
         $root = dirname(__DIR__);
         $tmp = sys_get_temp_dir() . '/' . bin2hex(random_bytes(8));
         $this->logger->debug("Backing up composer data to $tmp");
-        $fs->mirror("$root/vendor/composer", $tmp);
+        $this->fs->copy("$root/vendor/composer", $tmp);
         $command = implode(' ', [
             'composer',
             'dumpautoload',
@@ -114,9 +123,9 @@ class Compiler
     {
         $this->logger->debug("Restoring composer data from $from");
         $root = dirname(__DIR__);
-        $fs = new Filesystem();
-        $fs->remove("$root/vendor/composer");
-        $fs->rename($from, "$root/vendor/composer");
+        $this->fs->delete("$root/vendor/composer", true);
+        $this->fs->copy($from, "$root/vendor/composer");
+        $this->fs->delete($from, true);
     }
 
     private function addVendorPackage(Phar $phar, array $packageData): void
