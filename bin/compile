@@ -1,10 +1,10 @@
-#!/usr/bin/env php
+#!/usr/bin/env php -d phar.readonly=0
 <?php
 require __DIR__.'/../vendor/autoload.php';
 
 use Symfony\Component\Console\Application;
 
-$command = new Firehed\Nf\Command();
+$command = new Firehed\Nf\CompileCommand();
 
 $application = new Application();
 $application->add($command);
