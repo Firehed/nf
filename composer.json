@@ -1,0 +1,19 @@
+{
+    "name": "firehed/nf",
+    "description": "A simple PHP file skeleton generator",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Eric Stern",
+            "email": "eric@ericstern.com"
+        }
+    ],
+    "require": {
+        "symfony/console": "^4.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "Firehed\\Nf\\": "src"
+        }
+    }
+}
