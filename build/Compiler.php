@@ -36,15 +36,7 @@ class Compiler
         // Stub first to get initial validation done
         $phar->setStub($this->getStub($commandClass));
 
-        $root = dirname(__DIR__);
-        $finder = new Finder();
-        $finder->files()
-            ->ignoreVCS(true)
-            ->name('*.php')
-            ->in("$root/src");
-        foreach ($finder as $file) {
-            $this->addFile($phar, $file->getPathname());
-        }
+        $this->addDirectory($phar, 'src');
 
         $this->addVendor($phar);
 
